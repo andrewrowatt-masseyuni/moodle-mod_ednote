@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="mod/ednote/db" VERSION="20260802" COMMENT="XMLDB file for Moodle mod_ednote"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
+>
+  <TABLES>
+    <TABLE NAME="ednote" COMMENT="A teacher-only note shown inline on the course page, like a label that students cannot see. Which users can see it is decided entirely by the mod/ednote:view capability - see the comment in db/access.php.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="course" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="intro" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="The note body. For a standalone note this is the whole story. For a note carrying a presetid it is only a fallback snapshot, used when mod_edpreset is absent or the preset has been deleted - the live text is read from edpreset_item.teacherguidance on every render."/>
+        <FIELD NAME="introformat" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="1" SEQUENCE="false"/>
+        <FIELD NAME="presetid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="edpreset_item.id this note shows the guidance for, or 0 for a standalone note. Not a foreign key: mod_edpreset is an optional dependency and its tables may not exist. Also the key the 'always hide this guidance' scope is stored against, which is why it must survive a course backup."/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="course" TYPE="foreign" FIELDS="course" REFTABLE="course" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="presetid" UNIQUE="false" FIELDS="presetid"/>
+      </INDEXES>
+    </TABLE>
+  </TABLES>
+</XMLDB>

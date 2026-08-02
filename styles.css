@@ -1,0 +1,67 @@
+/*
+ * Teacher note styling.
+ *
+ * All of it has to live in the emitted markup's own classes rather than on the course page's cm
+ * wrapper: theme_snap does not render the extraclasses that set_extra_classes() would set, so the
+ * only element this plugin can reliably style is the one it writes itself.
+ */
+
+.ednote-card {
+    border: 1px solid var(--info, #1f7e9a);
+    border-left-width: 0.25rem;
+    border-radius: 0.25rem;
+    padding: 0.75rem 1rem;
+}
+
+.ednote-card-header {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.ednote-card-title {
+    font-weight: 600;
+}
+
+.ednote-card-body {
+    margin-top: 0.5rem;
+}
+
+.ednote-card-body > :last-child {
+    margin-bottom: 0;
+}
+
+.ednote-card-dismissed {
+    margin-top: 0.5rem;
+}
+
+/*
+ * Removing a note the current user has hidden.
+ *
+ * ednote_cm_info_view() emits nothing but the marker below, but the <li> around it belongs to the
+ * course format (or, on Snap, to that theme's own course renderer) and this plugin cannot suppress
+ * it from PHP. cm_info::set_user_visible(false) does not help on Boost: it writes uservisible only,
+ * and the callback runs after update_user_visible() has already derived uservisibleoncoursepage,
+ * which is what core's cmlist actually gates on.
+ *
+ * Doing it in CSS is safe because it is cosmetic. Students are kept away from notes by the
+ * mod/ednote:view capability, in core, and never reach this markup at all - so a browser that does
+ * not support :has() shows a teacher a note they had dismissed, and shows a student nothing either
+ * way. mod_ednote/note also removes these on load, for exactly that case.
+ *
+ * Both themes put modtype_ednote on the wrapper: core in
+ * course/format/templates/local/content/section/cmitem.mustache, Snap in
+ * theme/snap/classes/output/core/course_renderer.php.
+ */
+li.modtype_ednote:has(.ednote-is-hidden) {
+    display: none;
+}
+
+/*
+ * Snap prefixes every card that has no link with its activity type, blanking it only for
+ * mod_label. The note already says what it is in its own header, so the prefix is a duplicate.
+ */
+.modtype_ednote .snap-assettype {
+    display: none;
+}
