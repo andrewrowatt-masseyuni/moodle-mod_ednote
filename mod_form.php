@@ -43,12 +43,21 @@ class mod_ednote_mod_form extends moodleform_mod {
         $mform->addElement('header', 'general', get_string('general', 'form'));
 
         // Like a label, the note has no separate title: the body is the whole thing. A name is
-        // still stored, because course reports and the recycle bin need something to call it.
+        // still stored, because course reports and the recycle bin need something to call it, and
+        // it is derived from the body in data_postprocessing() below.
+        //
+        // Being hidden is exactly why validation() has to be overridden. moodleform_mod::validation
+        // rejects an empty name for any form where the element exists, and an error attached to a
+        // hidden element renders nothing - the form simply comes back with no explanation.
         $mform->addElement('hidden', 'name', '');
         $mform->setType('name', PARAM_TEXT);
 
         $this->standard_intro_elements(get_string('title', 'mod_ednote'));
-        $mform->removeElement('showdescription');
+
+        // FEATURE_SHOW_DESCRIPTION is false, so standard_intro_elements() adds no checkbox for
+        // this and the value has to be supplied. A note is always shown; that is what it is for.
+        $mform->addElement('hidden', 'showdescription', 1);
+        $mform->setType('showdescription', PARAM_INT);
 
         // A note carrying a preset's guidance shows that instead of what is typed here, so say so
         // rather than letting a curator edit a field that will not be displayed.
@@ -58,6 +67,28 @@ class mod_ednote_mod_form extends moodleform_mod {
 
         $this->standard_coursemodule_elements();
         $this->add_action_buttons();
+    }
+
+    /**
+     * Drop the required-name error, the way mod_label does.
+     *
+     * The name is derived from the body in data_postprocessing(), which runs after validation - so
+     * at this point it is still the empty string the hidden element was created with, and
+     * moodleform_mod::validation() has just rejected it. Left in place the error is invisible,
+     * because a hidden element renders no error text, and the form comes back looking untouched.
+     *
+     * @param array $data The submitted data.
+     * @param array $files The submitted files.
+     * @return array Errors keyed by element name.
+     */
+    public function validation($data, $files) {
+        $errors = parent::validation($data, $files);
+
+        if (($errors['name'] ?? null) === get_string('required')) {
+            unset($errors['name']);
+        }
+
+        return $errors;
     }
 
     /**

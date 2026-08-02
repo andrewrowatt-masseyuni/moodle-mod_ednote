@@ -80,6 +80,56 @@ final class lib_test extends \advanced_testcase {
         $this->assertFalse(ednote_supports(FEATURE_GRADE_HAS_GRADE));
         $this->assertFalse(ednote_supports(FEATURE_GROUPS));
         $this->assertSame(MOD_ARCHETYPE_RESOURCE, ednote_supports(FEATURE_MOD_ARCHETYPE));
+
+        // False deliberately. If this turns true, standard_intro_elements() starts adding a
+        // "Display description" checkbox - but only when the course format has a view page, so the
+        // form then behaves differently under the single activity format.
+        $this->assertFalse(ednote_supports(FEATURE_SHOW_DESCRIPTION));
+    }
+
+    /**
+     * The settings form saves a note that has no name typed into it.
+     *
+     * moodleform_mod::validation() rejects an empty name whenever a name element exists, and this
+     * form's name element is hidden and filled in afterwards by data_postprocessing(). Without the
+     * validation() override the form fails silently - a hidden element renders no error text, so
+     * the teacher is simply returned to an apparently untouched add form.
+     */
+    public function test_the_form_accepts_a_note_with_no_name(): void {
+        global $CFG, $PAGE;
+
+        require_once($CFG->dirroot . '/course/modlib.php');
+        require_once($CFG->dirroot . '/course/moodleform_mod.php');
+        require_once($CFG->dirroot . '/mod/ednote/mod_form.php');
+
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $course = $this->getDataGenerator()->create_course(['numsections' => 3]);
+
+        // Core's standard_coursemodule_elements() looks the section up against global $COURSE rather
+        // than the course it was handed, and in a test that global is still the site course, whose
+        // sections do not line up. Production always reaches this form through a page already set
+        // to the right course.
+        $PAGE->set_course($course);
+
+        [, , , $cm, $data] = prepare_new_moduleinfo_data($course, 'ednote', 1);
+        $form = new \mod_ednote_mod_form($data, 1, $cm, $course);
+
+        // Built from the defaults core itself prepared, so that the parent validation finds the
+        // completion and availability keys it expects rather than a hand-picked subset.
+        $submitted = (array)$data + [
+            'availabilityconditionsjson' => '{"op":"&","c":[],"showc":[]}',
+        ];
+        $submitted['name'] = '';
+        $submitted['introeditor'] = ['text' => '<p>Set the due date.</p>', 'format' => FORMAT_HTML, 'itemid' => 0];
+        $submitted['modulename'] = 'ednote';
+        $submitted['instance'] = 0;
+        $submitted['coursemodule'] = 0;
+
+        $errors = $form->validation($submitted, []);
+
+        $this->assertArrayNotHasKey('name', $errors);
     }
 
     /**

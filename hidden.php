@@ -59,10 +59,15 @@ if ($scope !== '' && $hide >= 0) {
         throw new moodle_exception('invalidparameter', 'debug');
     }
 
-    // A note is only hideable by someone who can see it. For the note scope that means checking the
-    // module itself rather than the course, since a role override can differ per activity.
+    // A note is only hideable by someone who can see it, and a role override can differ per
+    // activity, so the module context is what to check.
+    //
+    // Resolved with get_coursemodule_from_id() rather than get_course_and_cm_from_cmid() for the
+    // same reason as the web service: the latter refuses a cm that is not user-visible, and a note
+    // this user has already hidden is precisely that. Using it here would make the Show button on
+    // this page fail for every note it lists.
     if ($scope === hidden::SCOPE_NOTE) {
-        [, $cm] = get_course_and_cm_from_cmid($itemid, 'ednote', $course);
+        $cm = get_coursemodule_from_id('ednote', $itemid, $course->id, false, MUST_EXIST);
         require_capability('mod/ednote:view', context_module::instance($cm->id));
     }
 

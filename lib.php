@@ -40,7 +40,11 @@ function ednote_supports($feature) {
         FEATURE_MOD_PURPOSE => MOD_PURPOSE_ADMINISTRATION,
         FEATURE_NO_VIEW_LINK => true,
         FEATURE_MOD_INTRO => true,
-        FEATURE_SHOW_DESCRIPTION => true,
+        // False, like mod_label: the body IS the note, so it is always on the course page and a
+        // "Display description" checkbox would be a setting that does nothing. Saying true here
+        // also makes standard_intro_elements() add that checkbox only when the course format has a
+        // view page, so any form code touching it breaks under the single activity format.
+        FEATURE_SHOW_DESCRIPTION => false,
         FEATURE_BACKUP_MOODLE2 => true,
         FEATURE_COMPLETION_TRACKS_VIEWS => false,
         FEATURE_COMPLETION_HAS_RULES => false,

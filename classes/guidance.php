@@ -119,7 +119,11 @@ class guidance {
         if ($snapshot !== '') {
             return (object)[
                 'presetid' => $presetid,
-                'content' => format_text($snapshot, (int)$record->introformat, ['context' => \context_system::instance()]),
+                // Uses format_module_intro() rather than a bare format_text(): it rewrites the
+                // @@PLUGINFILE@@ placeholders in a hand-written note against the module context, so
+                // that images pasted into the editor resolve through ednote_pluginfile(). Formatting
+                // against the system context instead would render them as broken images.
+                'content' => format_module_intro('ednote', $record, (int)$record->cmid),
                 // A note that was linked to a preset but is now falling back to its snapshot is
                 // showing text that may be out of date, and the teacher should be told so.
                 'missing' => (bool)$presetid,

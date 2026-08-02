@@ -92,6 +92,35 @@ const removeHiddenNotes = () => {
 };
 
 /**
+ * Record the choice and swap the card over.
+ *
+ * Written with try/catch rather than a promise chain because core/ajax hands back a jQuery
+ * Deferred, not a native promise: it has .then(), .catch() and .always(), but no .finally(), and
+ * calling one leaves the Pending unresolved and the page permanently "not ready".
+ *
+ * @param {Element} note The note root.
+ * @param {number} cmid The note's course module id.
+ * @param {string} scope hiddennote or hiddenguidance.
+ * @param {boolean} hidden Whether it should be hidden.
+ */
+const applyHidden = async(note, cmid, scope, hidden) => {
+    const pending = new Pending('mod_ednote/note:sethidden');
+
+    try {
+        // The server decides the scope actually applied: asking to hide the guidance of a note
+        // that has no preset falls back to hiding just that note, and undo has to reverse what was
+        // stored rather than what was clicked.
+        const result = await setHidden(cmid, scope, hidden);
+        note.dataset.appliedscope = result.scope;
+        showDismissed(note, hidden);
+    } catch (error) {
+        Notification.exception(error);
+    }
+
+    pending.resolve();
+};
+
+/**
  * Wire up the course page.
  */
 export const init = () => {
@@ -116,20 +145,7 @@ export const init = () => {
 
         const cmid = parseInt(note.dataset.cmid, 10);
         const scope = hide ? hide.dataset.scope : note.dataset.appliedscope;
-        const hidden = !!hide;
 
-        const pending = new Pending('mod_ednote/note:sethidden');
-
-        setHidden(cmid, scope, hidden)
-            .then((result) => {
-                // The server decides the scope actually applied: asking to hide the guidance of a
-                // note that has no preset falls back to hiding just that note, and undo has to
-                // reverse what was stored rather than what was clicked.
-                note.dataset.appliedscope = result.scope;
-                showDismissed(note, hidden);
-                return result;
-            })
-            .catch(Notification.exception)
-            .finally(() => pending.resolve());
+        applyHidden(note, cmid, scope, !!hide);
     });
 };

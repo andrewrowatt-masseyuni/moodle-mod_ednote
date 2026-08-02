@@ -113,13 +113,31 @@ final class external_test extends \advanced_testcase {
     }
 
     /**
-     * A student cannot hide a note, because a student cannot resolve one.
+     * A teacher who has hidden a note can still unhide it.
      *
-     * The refusal comes from get_course_and_cm_from_cmid() rather than from this plugin's own
-     * require_capability(): mod/ednote:view has already made the module not user-visible, so core
-     * will not hand a student the cm at all. That is a stronger guarantee than the capability check
-     * that follows it, which is why the expected exception is a login one rather than a capability
-     * one - see test_the_capability_is_required for the check this plugin makes itself.
+     * Hiding a note makes ednote_cm_info_dynamic() mark it not user-visible, so anything that
+     * resolves the module through require_login() - get_course_and_cm_from_cmid(), or
+     * validate_context() on the module context - refuses the very person who hid it. Getting this
+     * wrong is a one-way door that no amount of clicking Show can reopen.
+     */
+    public function test_a_hidden_note_can_still_be_unhidden(): void {
+        $this->resetAfterTest();
+        [$course, $cmid] = $this->make_note();
+        $this->setUser($this->getDataGenerator()->create_and_enrol($course, 'editingteacher'));
+
+        set_hidden::execute($cmid, hidden::SCOPE_NOTE, true);
+
+        // Rebuild what the course page would see, so the cm really is not user-visible now.
+        hidden::reset_cache();
+        get_fast_modinfo($course, 0, true);
+        $this->assertFalse(get_fast_modinfo($course)->get_cm($cmid)->uservisible);
+
+        $this->assertFalse(set_hidden::execute($cmid, hidden::SCOPE_NOTE, false)['hidden']);
+        $this->assertFalse(hidden::is_hidden($cmid, 0));
+    }
+
+    /**
+     * A student cannot hide a note, because a student cannot see one.
      */
     public function test_a_student_is_refused(): void {
         global $DB;
@@ -131,8 +149,8 @@ final class external_test extends \advanced_testcase {
         try {
             set_hidden::execute($cmid, hidden::SCOPE_NOTE, true);
             $this->fail('A student must not be able to hide a teacher note.');
-        } catch (\core\exception\require_login_exception $e) {
-            $this->assertStringContainsString('hidden', $e->getMessage());
+        } catch (\required_capability_exception $e) {
+            $this->assertStringContainsString(get_string('ednote:view', 'mod_ednote'), $e->getMessage());
         }
 
         $this->assertSame(0, $DB->count_records('favourite', ['component' => hidden::COMPONENT]));
@@ -140,11 +158,6 @@ final class external_test extends \advanced_testcase {
 
     /**
      * The capability, not the role, is what decides this.
-     *
-     * A teacher with mod/ednote:view prohibited is refused exactly as a student is - and refused at
-     * the same place, because losing the capability is what makes the module unresolvable. The
-     * require_capability() in the web service is therefore belt and braces rather than the gate;
-     * this test exists so that a future change loosening either one shows up here.
      */
     public function test_the_capability_and_not_the_role_is_what_decides(): void {
         global $DB;
@@ -161,9 +174,8 @@ final class external_test extends \advanced_testcase {
         $roleid = $DB->get_field('role', 'id', ['shortname' => 'editingteacher'], MUST_EXIST);
         assign_capability('mod/ednote:view', CAP_PROHIBIT, $roleid, \context_course::instance($course->id), true);
         accesslib_clear_all_caches_for_unit_testing();
-        get_fast_modinfo($course, 0, true);
 
-        $this->expectException(\core\exception\require_login_exception::class);
+        $this->expectException(\required_capability_exception::class);
         set_hidden::execute($cmid, hidden::SCOPE_NOTE, false);
     }
 

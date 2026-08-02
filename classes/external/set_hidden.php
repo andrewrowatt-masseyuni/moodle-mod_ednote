@@ -60,6 +60,8 @@ class set_hidden extends external_api {
      * @return array
      */
     public static function execute(int $cmid, string $scope, bool $hidden): array {
+        global $DB;
+
         ['cmid' => $cmid, 'scope' => $scope, 'hidden' => $hidden] = self::validate_parameters(
             self::execute_parameters(),
             ['cmid' => $cmid, 'scope' => $scope, 'hidden' => $hidden]
@@ -69,17 +71,22 @@ class set_hidden extends external_api {
             throw new \invalid_parameter_exception('Unknown teacher note hide scope: ' . $scope);
         }
 
-        [, $cm] = get_course_and_cm_from_cmid($cmid, 'ednote');
-        $context = \context_module::instance($cm->id);
-        self::validate_context($context);
+        // Deliberately get_coursemodule_from_id() and the COURSE context, not
+        // get_course_and_cm_from_cmid() and the module context. Both of those run the module
+        // through require_login(), which refuses a cm that is not user-visible - and the moment a
+        // teacher hides a note, ednote_cm_info_dynamic() makes it exactly that. Going through them
+        // would let a note be hidden and then never unhidden by the person who hid it.
+        $cm = get_coursemodule_from_id('ednote', $cmid, 0, false, MUST_EXIST);
+        self::validate_context(\context_course::instance($cm->course));
 
-        // You can only hide a note you can see. This is also what stops a student from quietly
-        // accumulating rows against notes they were never shown.
-        require_capability('mod/ednote:view', $context);
+        // Which means this is the real gate rather than a formality: it is what stops a student
+        // quietly accumulating rows against notes they were never shown.
+        $modulecontext = \context_module::instance($cm->id);
+        require_capability('mod/ednote:view', $modulecontext);
 
         $itemid = $cmid;
         if ($scope === hidden::SCOPE_GUIDANCE) {
-            $presetid = (int)($cm->customdata['presetid'] ?? 0);
+            $presetid = (int)$DB->get_field('ednote', 'presetid', ['id' => $cm->instance], MUST_EXIST);
             if ($presetid <= 0) {
                 // A standalone note has no guidance to hide everywhere, so the wider scope has no
                 // meaning. Fall back rather than write a row keyed on 0, which would match every
