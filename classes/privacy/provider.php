@@ -110,11 +110,13 @@ class provider implements core_userlist_provider, metadata_provider, plugin_prov
                 continue;
             }
 
-            $rows = [];
-            foreach ($DB->get_records('favourite', [
+            $favourites = $DB->get_records('favourite', [
                 'userid' => $userid,
                 'component' => hidden::COMPONENT,
-            ]) as $favourite) {
+            ]);
+
+            $rows = [];
+            foreach ($favourites as $favourite) {
                 if (!\in_array($favourite->itemtype, hidden::scopes(), true)) {
                     continue;
                 }

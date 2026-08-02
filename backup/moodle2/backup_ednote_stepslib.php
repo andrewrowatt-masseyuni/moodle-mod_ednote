@@ -22,8 +22,6 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Define the complete teacher note structure for backup, with file annotations.
  *
@@ -38,7 +36,7 @@ class backup_ednote_activity_structure_step extends backup_activity_structure_st
      * @return backup_nested_element
      */
     protected function define_structure() {
-        // presetid is carried deliberately. It is not an id inside this course, so it is not
+        // The presetid is carried deliberately. It is not an id inside this course, so it is not
         // annotated and not remapped: it names a preset on the site, and a note restored into a
         // new course must still show that preset's current guidance. It is also the key the
         // "always hide this guidance" scope is stored against, so dropping it here would silently

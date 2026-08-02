@@ -141,7 +141,7 @@ final class lib_test extends \advanced_testcase {
         $info = ednote_get_coursemodule_info($DB->get_record('course_modules', ['id' => $cmid]));
 
         $this->assertSame(42, (int)$info->customdata['presetid']);
-        // cached_cm_info always declares content; what matters is that nothing was put in it.
+        // The cached_cm_info class always declares content; what matters is that nothing was set.
         $this->assertNull($info->content, 'The note body must not be cached in modinfo.');
     }
 
@@ -173,7 +173,7 @@ final class lib_test extends \advanced_testcase {
         global $DB;
 
         $this->resetAfterTest();
-        [$course, $cmid, $users] = $this->make_course();
+        [, $cmid, $users] = $this->make_course();
 
         $this->setUser($users['editingteacher']);
         hidden::set(hidden::SCOPE_NOTE, $cmid, true);

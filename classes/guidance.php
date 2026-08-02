@@ -59,7 +59,7 @@ class guidance {
             return self::$cache[$courseid] = [];
         }
 
-        // mod_edpreset is an optional dependency, so its table cannot be joined unconditionally -
+        // The edpreset plugin is an optional dependency, so its table cannot be joined blindly -
         // on a site without it the join would be to a table that does not exist.
         if (self::edpreset_is_installed()) {
             $sql = "SELECT cm.id AS cmid, e.presetid, e.intro, e.introformat, i.teacherguidance

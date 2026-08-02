@@ -24,8 +24,8 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-// ajax => true and in no service: this is called by the course page's own JS as the logged-in
-// user, never by an external client with a token.
+// Flagged ajax and put in no service: this is called by the course page's own JS as the
+// logged-in user, never by an external client with a token.
 $functions = [
     'mod_ednote_set_hidden' => [
         'classname' => 'mod_ednote\external\set_hidden',

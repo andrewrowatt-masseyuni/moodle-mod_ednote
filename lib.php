@@ -25,8 +25,6 @@
 use mod_ednote\guidance;
 use mod_ednote\hidden;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Declare which core features the teacher note supports.
  *
@@ -37,30 +35,22 @@ defined('MOODLE_INTERNAL') || die();
  * @return mixed True, false, a value, or null when core should decide.
  */
 function ednote_supports($feature) {
-    switch ($feature) {
-        case FEATURE_MOD_ARCHETYPE:
-            return MOD_ARCHETYPE_RESOURCE;
-        case FEATURE_MOD_PURPOSE:
-            return MOD_PURPOSE_ADMINISTRATION;
-        case FEATURE_NO_VIEW_LINK:
-            return true;
-        case FEATURE_MOD_INTRO:
-            return true;
-        case FEATURE_SHOW_DESCRIPTION:
-            return true;
-        case FEATURE_BACKUP_MOODLE2:
-            return true;
-        case FEATURE_COMPLETION_TRACKS_VIEWS:
-        case FEATURE_COMPLETION_HAS_RULES:
-        case FEATURE_GRADE_HAS_GRADE:
-        case FEATURE_GRADE_OUTCOMES:
-        case FEATURE_GROUPS:
-        case FEATURE_GROUPINGS:
-        case FEATURE_IDNUMBER:
-            return false;
-        default:
-            return null;
-    }
+    return match ($feature) {
+        FEATURE_MOD_ARCHETYPE => MOD_ARCHETYPE_RESOURCE,
+        FEATURE_MOD_PURPOSE => MOD_PURPOSE_ADMINISTRATION,
+        FEATURE_NO_VIEW_LINK => true,
+        FEATURE_MOD_INTRO => true,
+        FEATURE_SHOW_DESCRIPTION => true,
+        FEATURE_BACKUP_MOODLE2 => true,
+        FEATURE_COMPLETION_TRACKS_VIEWS => false,
+        FEATURE_COMPLETION_HAS_RULES => false,
+        FEATURE_GRADE_HAS_GRADE => false,
+        FEATURE_GRADE_OUTCOMES => false,
+        FEATURE_GROUPS => false,
+        FEATURE_GROUPINGS => false,
+        FEATURE_IDNUMBER => false,
+        default => null,
+    };
 }
 
 /**
@@ -198,22 +188,19 @@ function ednote_cm_info_view(cm_info $cm) {
     // Rendered as a card rather than an activity link, like a label.
     $cm->set_custom_cmlist_item(true);
 
-    if (hidden::is_hidden((int)$cm->id, $presetid)) {
-        // Emit the marker and nothing else. The CSS rule on li.modtype_ednote:has(.ednote-is-hidden)
-        // removes the whole course-page wrapper, which is markup this plugin does not own and
-        // cannot suppress from here.
-        //
-        // Using CSS for this is deliberate and safe: it is cosmetic. A teacher seeing a note they
-        // dismissed is a nuisance; students never reach this code at all, because mod/ednote:view
-        // has already made the cm invisible to them in core.
-        $cm->set_content(html_writer::span('', 'ednote-is-hidden', ['hidden' => 'hidden']), true);
-        return;
-    }
-
     $note = guidance::for_cm((int)$cm->course, (int)$cm->id);
-    if (!$note || ($note->content === '' && !$note->missing)) {
-        // An empty note is not worth a card.
-        $cm->set_content('', true);
+
+    // Nothing to say, or the viewer has said they do not want to hear it. Either way emit the
+    // marker and nothing else: the CSS rule on li.modtype_ednote:has(.ednote-is-hidden) removes the
+    // whole course-page wrapper, which is markup this plugin does not own and cannot suppress from
+    // here, and an empty wrapper reads as a broken activity.
+    //
+    // Using CSS for this is deliberate and safe, because it is cosmetic. A teacher seeing a note
+    // they dismissed is a nuisance; students never reach this code at all, because mod/ednote:view
+    // has already made the cm invisible to them in core.
+    $empty = !$note || ($note->content === '' && !$note->missing);
+    if ($empty || hidden::is_hidden((int)$cm->id, $presetid)) {
+        $cm->set_content(html_writer::span('', 'ednote-is-hidden', ['hidden' => 'hidden']), true);
         return;
     }
 

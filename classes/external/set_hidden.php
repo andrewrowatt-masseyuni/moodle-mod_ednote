@@ -38,7 +38,10 @@ class set_hidden extends external_api {
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
             'cmid' => new external_value(PARAM_INT, 'The teacher note being acted on'),
-            'scope' => new external_value(PARAM_ALPHA, 'hiddennote for this note, hiddenguidance for every note with the same guidance'),
+            'scope' => new external_value(
+                PARAM_ALPHA,
+                'Either hiddennote for this note alone, or hiddenguidance for every note sharing its guidance'
+            ),
             'hidden' => new external_value(PARAM_BOOL, 'Whether the note should be hidden'),
         ]);
     }
