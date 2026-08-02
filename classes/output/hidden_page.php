@@ -122,7 +122,7 @@ class hidden_page implements renderable, templatable {
         foreach (self::hidden_notes_in_course($courseid) as $cm) {
             $rows[] = (object)[
                 'name' => $cm->get_formatted_name(),
-                'showurl' => ednote_action_url($courseid, hidden::SCOPE_NOTE, (int)$cm->id, false)->out(false),
+                'showurl' => hidden::action_url($courseid, hidden::SCOPE_NOTE, (int)$cm->id, false)->out(false),
             ];
         }
 
@@ -149,7 +149,7 @@ class hidden_page implements renderable, templatable {
                 // A preset that has since been deleted still has a row to undo, so it needs a name
                 // to show against rather than an empty cell.
                 'name' => $titles[$presetid] ?? get_string('guidancemissing', 'mod_ednote'),
-                'showurl' => ednote_action_url(
+                'showurl' => hidden::action_url(
                     (int)$this->course->id,
                     hidden::SCOPE_GUIDANCE,
                     $presetid,

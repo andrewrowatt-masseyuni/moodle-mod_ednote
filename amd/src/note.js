@@ -32,7 +32,7 @@ import Pending from 'core/pending';
 
 const SELECTORS = {
     NOTE: '[data-region="ednote"]',
-    BODY: '[data-region="ednote-body"]',
+    LIVE: '[data-region="ednote-live"]',
     DISMISSED: '[data-region="ednote-dismissed"]',
     HIDE: '[data-action="ednote-hide"]',
     UNDO: '[data-action="ednote-undo"]',
@@ -55,24 +55,22 @@ const setHidden = (cmid, scope, hidden) => fetchMany([{
 /**
  * Swap a note between its guidance and the "this is hidden" confirmation.
  *
+ * The guidance and its hide links share one region, so a single toggle covers both - there is no
+ * state in which the note is dismissed but still offering to dismiss itself.
+ *
  * @param {Element} note The note root.
  * @param {boolean} dismissed Whether to show the confirmation.
  */
 const showDismissed = (note, dismissed) => {
-    const body = note.querySelector(SELECTORS.BODY);
+    const live = note.querySelector(SELECTORS.LIVE);
     const message = note.querySelector(SELECTORS.DISMISSED);
 
-    if (body) {
-        body.toggleAttribute('hidden', dismissed);
+    if (live) {
+        live.toggleAttribute('hidden', dismissed);
     }
     if (message) {
         message.toggleAttribute('hidden', !dismissed);
     }
-
-    // The kebab offers actions that no longer apply while the note is in its dismissed state.
-    note.querySelectorAll(SELECTORS.HIDE).forEach((link) => {
-        link.classList.toggle('d-none', dismissed);
-    });
 };
 
 /**

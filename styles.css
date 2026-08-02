@@ -6,53 +6,140 @@
  * only element this plugin can reliably style is the one it writes itself.
  */
 
+/*
+ * "Quiet strip" treatment. The note carries no fill of its own - just a teal rule down its left
+ * edge - so it reads as a low-weight teacher aside between the activity cards rather than competing
+ * with them. Colour still comes from Moodle's info-teal family.
+ */
 .ednote-card {
-    padding: .75rem;
+    padding: 0.125rem 0 0.125rem 1rem;
     margin-bottom: 0;
-    border: 1px solid #fff0;
-    font-weight: 300;
+    border: 0;
+    border-left: 3px solid #2f8a9b;
+    color: #40626a;
+    font-weight: 400;
+    background-color: transparent;
+}
 
-    position: relative;
-    border-left: 3em solid #fff0;
-
-    color: #0c5460;
-    background-color: #d1ecf1;
-    border-color: #bee5eb;
-    border-left-color: #bee5eb;
-
-
-    &::before {
-        content: '\f0eb';
-        left: -1em;
-        top: .1em;
-        font-size: 2em;
-        position: absolute;
-        font-family: 'Font Awesome 6 Free';
-        font-weight: 100;
-    }
+/* Border mutes once the note has been dismissed. */
+.ednote-card:has([data-region="ednote-dismissed"]:not([hidden])) {
+    border-left-color: #b6c9cd;
 }
 
 .ednote-card-header {
-    align-items: center;
     display: flex;
-    justify-content: space-between;
-    gap: 0.5rem;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.5rem;
+    margin-bottom: 0.5rem;
 }
 
 .ednote-card-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
     font-weight: 500;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #12545f;
+}
+
+.ednote-card-title::before {
+    content: '\f0eb';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    font-size: 0.85rem;
+    letter-spacing: normal;
+    color: #2f8a9b;
+}
+
+/* "only you can see this" - reassures the teacher the aside is not on the student view. */
+.ednote-card-scope {
+    font-size: 0.75rem;
+    font-weight: 400;
+    letter-spacing: normal;
+    text-transform: none;
+    color: #8ba1a7;
 }
 
 .ednote-card-body {
-    margin-top: 0.5rem;
+    margin: 0 0 0.625rem;
+    font-size: 0.875rem;
+    line-height: 1.55;
+    color: #40626a;
+    font-weight: 300;
 }
 
 .ednote-card-body > :last-child {
     margin-bottom: 0;
 }
 
+/*
+ * The hide controls sit under the guidance rather than behind a menu: there are only two of them,
+ * and a teacher deciding whether to dismiss a note should have read it first.
+ */
+.ednote-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0;
+
+    a.ednote-card-action {
+        font-size: 0.8rem;
+        color: #6a888f;
+        text-decoration: none;
+        /* stylelint-disable-next-line declaration-no-important */
+        border: none !important;
+    }
+}
+
+.ednote-card-action:first-child {
+    font-weight: 500;
+    color: #0f7b8f;
+}
+
+.ednote-card-action:hover {
+    text-decoration: underline;
+}
+
+/* Thin middot between the two controls. */
+.ednote-card-action + .ednote-card-action::before {
+    content: '·';
+    margin-right: 0.5rem;
+    color: #bcccd0;
+    text-decoration: none;
+}
+
+/*
+ * Dismissed confirmation. A check marks the change; the sentence flows with the inline undo button
+ * exactly as core's own inline actions do, so it works with the AMD toggle and with JS off.
+ */
 .ednote-card-dismissed {
-    margin-top: 0.5rem;
+    position: relative;
+    margin-top: 0;
+    padding: 0.125rem 0 0.125rem 1.375rem;
+    font-size: 0.875rem;
+    line-height: 1.55;
+    color: #6f858b;
+}
+
+.ednote-card-dismissed::before {
+    content: '\f00c';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    font-size: 0.8rem;
+    color: #7c9a83;
+    position: absolute;
+    left: 0;
+    top: 0.2rem;
+}
+
+.ednote-card-dismissed .btn-link {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #0f7b8f;
 }
 
 /*
@@ -91,6 +178,15 @@ body.path-course-view.snap-resource-card ul.section li.snap-asset.snap-resource.
     padding: 0 !important;
     margin: 1em 0;
     width: 100%;
+    height: auto;
+
+    .activityinstance {
+        margin-bottom: 0;
+    }
+
+    .snap-header-card {
+        justify-content: flex-end;
+    }
 
     .asset-wrapper {
         padding: 0;

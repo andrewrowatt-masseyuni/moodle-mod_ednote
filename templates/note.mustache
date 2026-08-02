@@ -1,0 +1,92 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template mod_ednote/note
+
+    One teacher note on the course page.
+
+    Both states are rendered: the guidance, and the confirmation shown after it is hidden. The AMD
+    module toggles the hidden attribute between the two regions, so undo needs no round trip.
+
+    The hide controls are ordinary links to hidden.php carrying a sesskey, so the note still works
+    with JavaScript off - mod_ednote/note intercepts them only when it can finish the job itself.
+
+    Context variables required for this template:
+    * cmid int
+    * presetid int - 0 for a note that is not showing a preset's guidance
+    * body string - already cleaned HTML, rendered unescaped
+    * missing bool - the linked preset has gone, so the body may be out of date
+    * hidenoteurl string
+    * hidenotescope string
+    * haspreset bool
+    * hideguidanceurl string
+    * hideguidancescope string
+
+    Example context (json):
+    {
+        "cmid": 42,
+        "presetid": 7,
+        "body": "<p>Set the due date before releasing this to students.</p>",
+        "missing": false,
+        "hidenoteurl": "#",
+        "hidenotescope": "hiddennote",
+        "haspreset": true,
+        "hideguidanceurl": "#",
+        "hideguidancescope": "hiddenguidance"
+    }
+}}
+<div class="ednote-card"
+    data-region="ednote"
+    data-cmid="{{cmid}}"
+    data-presetid="{{presetid}}"
+>
+    <div class="ednote-card-header">
+        <span class="ednote-card-title">{{#str}} title, mod_ednote {{/str}}</span>
+        <span class="ednote-card-scope">{{#str}} onlyyou, mod_ednote {{/str}}</span>
+    </div>
+
+    <div data-region="ednote-live">
+        {{#missing}}
+            <div class="alert alert-info" role="alert">{{#str}} guidancemissing, mod_ednote {{/str}}</div>
+        {{/missing}}
+
+        <div class="ednote-card-body">{{{body}}}</div>
+
+        <div class="ednote-card-actions">
+            <a href="{{hidenoteurl}}"
+                class="ednote-card-action"
+                data-action="ednote-hide"
+                data-scope="{{hidenotescope}}"
+            >{{#str}} hidethisnote, mod_ednote {{/str}}</a>
+            {{#haspreset}}
+                <a href="{{hideguidanceurl}}"
+                    class="ednote-card-action"
+                    data-action="ednote-hide"
+                    data-scope="{{hideguidancescope}}"
+                >{{#str}} hidethisguidance, mod_ednote {{/str}}</a>
+            {{/haspreset}}
+        </div>
+    </div>
+
+    <div class="ednote-card-dismissed" data-region="ednote-dismissed" hidden>
+        {{#str}} dismissed, mod_ednote {{/str}}
+        {{#str}} dismissedundo, mod_ednote {{/str}}
+        <button type="button" class="btn btn-link p-0 align-baseline" data-action="ednote-undo">
+            {{#str}} undo, mod_ednote {{/str}}
+        </button>
+    </div>
+</div>

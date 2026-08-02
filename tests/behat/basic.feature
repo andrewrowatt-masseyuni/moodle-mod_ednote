@@ -77,11 +77,10 @@ Feature: Add a teacher note to a course
       | ednote   | C1     | ednote1  | Teacher note | Check the group mode. | 1       |
     And I log in as "teacher1"
     And I am on "Course 1" course homepage
-    When I click on "Actions" "button" in the "Teacher note" "activity"
-    And I click on "Hide this note" "link" in the "Teacher note" "activity"
+    When I click on "Hide this note" "link" in the "Teacher note" "activity"
     Then I should see "When you revisit this page, the note will be removed."
     And I should not see "Check the group mode."
-    When I click on "undo" "button" in the "Teacher note" "activity"
+    When I click on "Undo" "button" in the "Teacher note" "activity"
     Then I should not see "When you revisit this page, the note will be removed."
     And I should see "Check the group mode."
 
@@ -92,11 +91,10 @@ Feature: Add a teacher note to a course
       | ednote   | C1     | ednote1  | Teacher note | Check the group mode. | 1       |
     And I log in as "teacher1"
     And I am on "Course 1" course homepage
-    When I click on "Actions" "button" in the "Teacher note" "activity"
-    And I click on "Hide this note" "link" in the "Teacher note" "activity"
+    When I click on "Hide this note" "link" in the "Teacher note" "activity"
     # Hiding marks the module not user-visible, so anything resolving it through require_login()
     # would now refuse the very person who hid it - and undo would be a one-way door.
-    And I click on "undo" "button" in the "Teacher note" "activity"
+    And I click on "Undo" "button" in the "Teacher note" "activity"
     And I am on "Course 1" course homepage
     Then I should see "Check the group mode."
 
@@ -107,8 +105,7 @@ Feature: Add a teacher note to a course
       | ednote   | C1     | ednote1  | Teacher note | Check the group mode. | 1       |
     And I log in as "teacher1"
     And I am on "Course 1" course homepage
-    When I click on "Actions" "button" in the "Teacher note" "activity"
-    And I click on "Hide this note" "link" in the "Teacher note" "activity"
+    When I click on "Hide this note" "link" in the "Teacher note" "activity"
     And I am on "Course 1" course homepage
     Then I should not see "Check the group mode."
     When I am on the "Course 1" "mod_ednote > hidden notes" page

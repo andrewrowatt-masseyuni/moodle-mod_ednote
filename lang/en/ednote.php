@@ -43,6 +43,7 @@ $string['modulename_help'] = 'A teacher note shows guidance on the course page t
 Unlike a hidden label, a note is not hidden by a visibility setting that can be switched on by accident - who can read it is decided by the "View teacher notes" capability. Each teacher can hide notes they have finished with, without affecting their colleagues.';
 $string['modulenameplural'] = 'Teacher notes';
 $string['noviewpage'] = 'A teacher note has no page of its own; it is shown on the course page.';
+$string['onlyyou'] = 'Only teachers see this';
 $string['pluginadministration'] = 'Teacher note administration';
 $string['pluginname'] = 'Teacher note';
 $string['presetguidance'] = 'This note shows the guidance recorded against a preset. Editing the preset updates it everywhere.';
@@ -51,4 +52,4 @@ $string['privacy:path:hidden'] = 'Hidden teacher notes';
 $string['show'] = 'Show';
 $string['showall'] = 'Show all again';
 $string['title'] = 'Teacher guidance';
-$string['undo'] = 'undo';
+$string['undo'] = 'Undo';

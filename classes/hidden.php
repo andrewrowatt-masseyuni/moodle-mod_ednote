@@ -177,6 +177,29 @@ class hidden {
     }
 
     /**
+     * A hidden.php link that hides or shows one item.
+     *
+     * Lives here rather than in lib.php so that the output classes can build these links without
+     * depending on the module library having been included - nothing loads a mod plugin's lib.php
+     * just because one of its autoloaded classes is in play.
+     *
+     * @param int $courseid The course to act in, and to return to.
+     * @param string $scope One of the SCOPE_* constants.
+     * @param int $itemid The course module id or preset id, depending on the scope.
+     * @param bool $hide True to hide, false to show again.
+     * @return \moodle_url
+     */
+    public static function action_url(int $courseid, string $scope, int $itemid, bool $hide): \moodle_url {
+        return new \moodle_url('/mod/ednote/hidden.php', [
+            'course' => $courseid,
+            'scope' => $scope,
+            'item' => $itemid,
+            'hide' => $hide ? 1 : 0,
+            'sesskey' => sesskey(),
+        ]);
+    }
+
+    /**
      * Forget what was read for this request.
      */
     public static function reset_cache(): void {

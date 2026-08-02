@@ -185,7 +185,7 @@ function ednote_cm_info_dynamic(cm_info $cm) {
  * @param cm_info $cm The course module.
  */
 function ednote_cm_info_view(cm_info $cm) {
-    global $PAGE;
+    global $OUTPUT, $PAGE;
 
     $presetid = (int)($cm->customdata['presetid'] ?? 0);
 
@@ -208,7 +208,13 @@ function ednote_cm_info_view(cm_info $cm) {
         return;
     }
 
-    $cm->set_content(ednote_render_card($cm, $note), true);
+    $cm->set_content(
+        $OUTPUT->render_from_template(
+            'mod_ednote/note',
+            (new \mod_ednote\output\note($cm, $note))->export_for_template($OUTPUT)
+        ),
+        true
+    );
 
     // Once per page, not once per note. Guarded against the contexts where cm_info is built with no
     // page to attach requirements to - cron, CLI, web service calls.
@@ -217,118 +223,6 @@ function ednote_cm_info_view(cm_info $cm) {
         $jsdone = true;
         $PAGE->requires->js_call_amd('mod_ednote/note', 'init');
     }
-}
-
-/**
- * Build the note's markup.
- *
- * Both the body and the "you have hidden this" confirmation are rendered here, the latter hidden.
- * The AMD module swaps which one is shown, so undo restores the guidance without a round trip and
- * without this plugin having to re-render anything client side.
- *
- * @param cm_info $cm The course module.
- * @param stdClass $note The resolved guidance, from mod_ednote\guidance.
- * @return string HTML.
- */
-function ednote_render_card(cm_info $cm, stdClass $note): string {
-    global $OUTPUT;
-
-    $body = $note->content;
-    if ($note->missing) {
-        $body = $OUTPUT->notification(get_string('guidancemissing', 'mod_ednote'), 'info', false) . $body;
-    }
-
-    $header = html_writer::div(
-        html_writer::span(get_string('title', 'mod_ednote'), 'ednote-card-title')
-        . html_writer::div(ednote_hide_menu($cm, (int)$note->presetid), 'ednote-card-actions'),
-        'ednote-card-header'
-    );
-
-    // Rendered up front and hidden, so that undo can put the guidance back by toggling one
-    // attribute rather than re-fetching and re-rendering it.
-    $dismissed = html_writer::div(
-        get_string('dismissed', 'mod_ednote')
-        . ' '
-        . get_string('dismissedundo', 'mod_ednote')
-        . ' '
-        . html_writer::tag('button', get_string('undo', 'mod_ednote'), [
-            'type' => 'button',
-            'class' => 'btn btn-link p-0 align-baseline',
-            'data-action' => 'ednote-undo',
-        ]),
-        'ednote-card-dismissed',
-        ['data-region' => 'ednote-dismissed', 'hidden' => 'hidden']
-    );
-
-    return html_writer::div(
-        $header
-        . html_writer::div($body, 'ednote-card-body', ['data-region' => 'ednote-body'])
-        . $dismissed,
-        'ednote-card',
-        [
-            'data-region' => 'ednote',
-            'data-cmid' => (int)$cm->id,
-            'data-presetid' => (int)$note->presetid,
-        ]
-    );
-}
-
-/**
- * The hide menu shown on a note.
- *
- * The items are real links to hidden.php rather than dead '#' anchors: the AMD module intercepts
- * them and swaps the card in place, but without JavaScript they still hide the note and come back
- * to the course page.
- *
- * @param cm_info $cm The course module.
- * @param int $presetid The preset the note carries guidance for, or 0.
- * @return string HTML.
- */
-function ednote_hide_menu(cm_info $cm, int $presetid): string {
-    global $OUTPUT;
-
-    $menu = new \core\output\action_menu();
-    $menu->set_kebab_trigger();
-    $menu->set_menu_left();
-
-    $menu->add(new \core\output\action_menu\link_secondary(
-        ednote_action_url((int)$cm->course, hidden::SCOPE_NOTE, (int)$cm->id, true),
-        null,
-        get_string('hidethisnote', 'mod_ednote'),
-        ['data-action' => 'ednote-hide', 'data-scope' => hidden::SCOPE_NOTE]
-    ));
-
-    // Only offered when there is a preset to hide everywhere. A standalone note has no identity
-    // beyond itself, so "always hide this guidance" would mean the same as "hide this note".
-    if ($presetid > 0) {
-        $menu->add(new \core\output\action_menu\link_secondary(
-            ednote_action_url((int)$cm->course, hidden::SCOPE_GUIDANCE, $presetid, true),
-            null,
-            get_string('hidethisguidance', 'mod_ednote'),
-            ['data-action' => 'ednote-hide', 'data-scope' => hidden::SCOPE_GUIDANCE]
-        ));
-    }
-
-    return $OUTPUT->render($menu);
-}
-
-/**
- * A hidden.php link that hides or shows one item.
- *
- * @param int $courseid The course to return to.
- * @param string $scope One of mod_ednote\hidden's SCOPE_* constants.
- * @param int $itemid The course module id or preset id, depending on the scope.
- * @param bool $hide True to hide, false to show again.
- * @return moodle_url
- */
-function ednote_action_url(int $courseid, string $scope, int $itemid, bool $hide): moodle_url {
-    return new moodle_url('/mod/ednote/hidden.php', [
-        'course' => $courseid,
-        'scope' => $scope,
-        'item' => $itemid,
-        'hide' => $hide ? 1 : 0,
-        'sesskey' => sesskey(),
-    ]);
 }
 
 /**
