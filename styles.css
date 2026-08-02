@@ -7,10 +7,29 @@
  */
 
 .ednote-card {
-    border: 1px solid var(--info, #1f7e9a);
-    border-left-width: 0.25rem;
-    border-radius: 0.25rem;
-    padding: 0.75rem 1rem;
+    padding: .75rem;
+    margin-bottom: 0;
+    border: 1px solid #fff0;
+    font-weight: 300;
+
+    position: relative;
+    border-left: 3em solid #fff0;
+
+    color: #0c5460;
+    background-color: #d1ecf1;
+    border-color: #bee5eb;
+    border-left-color: #bee5eb;
+
+
+    &::before {
+        content: '\f0eb';
+        left: -1em;
+        top: .1em;
+        font-size: 2em;
+        position: absolute;
+        font-family: 'Font Awesome 6 Free';
+        font-weight: 100;
+    }
 }
 
 .ednote-card-header {
@@ -21,7 +40,7 @@
 }
 
 .ednote-card-title {
-    font-weight: 600;
+    font-weight: 500;
 }
 
 .ednote-card-body {
@@ -64,4 +83,20 @@ li.modtype_ednote:has(.ednote-is-hidden) {
  */
 .modtype_ednote .snap-assettype {
     display: none;
+}
+
+body.path-course-view.snap-resource-card ul.section li.snap-asset.snap-resource.modtype_ednote {
+    border: none;
+    /* stylelint-disable-next-line declaration-no-important */
+    padding: 0 !important;
+    margin: 1em 0;
+    width: 100%;
+
+    .asset-wrapper {
+        padding: 0;
+    }
+
+    .snap-assettype {
+        display: none;
+    }
 }
