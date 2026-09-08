@@ -78,10 +78,10 @@ final class external_test extends \advanced_testcase {
     public function test_guidance_scope_uses_the_notes_own_preset(): void {
         $this->resetAfterTest();
 
-        $preset = $this->getDataGenerator()
-            ->get_plugin_generator('mod_edpreset')
-            ->create_preset(['teacherguidance' => '<p>Guidance.</p>']);
-        $presetid = (int)$preset->get('id');
+        // Any positive id will do. What is under test is that the id comes from the course module
+        // rather than from the caller, and set_hidden only ever stores it - the preset it names is
+        // mod_edpreset's business, and need not exist, or that plugin either.
+        $presetid = 4242;
 
         [$course, $cmid] = $this->make_note($presetid);
         $this->setUser($this->getDataGenerator()->create_and_enrol($course, 'editingteacher'));

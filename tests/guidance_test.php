@@ -25,6 +25,9 @@ namespace mod_ednote;
  * @covers     \mod_ednote\guidance
  */
 final class guidance_test extends \advanced_testcase {
+    /** @var int A preset id nothing resolves to, whether or not mod_edpreset is installed. */
+    private const MISSING_PRESETID = 999999;
+
     /**
      * Start each test with nothing resolved.
      */
@@ -36,10 +39,19 @@ final class guidance_test extends \advanced_testcase {
     /**
      * Create a preset carrying guidance, and return its id.
      *
+     * Only the two tests that assert on live guidance need a real preset row, and the skip is put
+     * here so that only those tests are lost on a site without mod_edpreset - the rest of this
+     * file runs anywhere. See the note against $plugin->dependencies in version.php: the link
+     * between the two plugins is one-way and soft, and the test suite says so too.
+     *
      * @param string $guidance The baked guidance HTML.
      * @return int
      */
     private function create_preset(string $guidance): int {
+        if (!guidance::edpreset_is_installed()) {
+            $this->markTestSkipped('Live preset guidance cannot be asserted without mod_edpreset.');
+        }
+
         $preset = $this->getDataGenerator()
             ->get_plugin_generator('mod_edpreset')
             ->create_preset(['teacherguidance' => $guidance, 'title' => 'Reflective journal']);
@@ -102,22 +114,21 @@ final class guidance_test extends \advanced_testcase {
 
     /**
      * A note whose preset has gone falls back to its own copy, and says the text may be stale.
+     *
+     * A presetid that resolves to nothing produces the same row down either branch of the query in
+     * for_course(): with mod_edpreset installed the LEFT JOIN finds no match, and without it there
+     * is no join to make. So one test covers both a deleted preset and an uninstalled plugin, and
+     * needs neither of them present to do it.
      */
     public function test_the_snapshot_is_used_when_the_preset_is_gone(): void {
-        global $DB;
-
         $this->resetAfterTest();
 
-        $presetid = $this->create_preset('<p>Live guidance.</p>');
         $course = $this->getDataGenerator()->create_course();
         $note = $this->getDataGenerator()->create_module('ednote', [
             'course' => $course->id,
-            'presetid' => $presetid,
+            'presetid' => self::MISSING_PRESETID,
             'intro' => '<p>Snapshot.</p>',
         ]);
-
-        $DB->delete_records('edpreset_item', ['id' => $presetid]);
-        guidance::reset_cache();
 
         $resolved = guidance::for_cm((int)$course->id, (int)$note->cmid);
 
@@ -149,6 +160,10 @@ final class guidance_test extends \advanced_testcase {
      *
      * ednote_cm_info_view() asks about every note on the page, so a per-note query would scale with
      * the number of presets a teacher has added.
+     *
+     * Needs live guidance rather than any old presetid, so it needs mod_edpreset: a note that falls
+     * back to its snapshot is formatted by format_module_intro(), whose own reads are per-note by
+     * nature and would swamp the count this is trying to take.
      */
     public function test_a_course_costs_one_query(): void {
         global $DB;

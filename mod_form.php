@@ -71,7 +71,12 @@ class mod_ednote_mod_form extends moodleform_mod {
         // get_moduleinfo_data() prepared from the stored intro, so the snapshot and its files
         // survive a save unchanged.
         if (!empty($this->current->presetid)) {
-            $mform->addElement('static', 'ednote_presetnotice', '', html_writer::div(get_string('presetguidance', 'mod_ednote'), 'alert alert-info ednote-presetnotice'));
+            $mform->addElement(
+                'static',
+                'ednote_presetnotice',
+                '',
+                html_writer::div(get_string('presetguidance', 'mod_ednote'), 'alert alert-info ednote-presetnotice')
+            );
             $mform->hardFreeze('introeditor');
 
             // A frozen editor renders as bare formatted text where the textarea was, which reads as

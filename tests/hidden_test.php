@@ -116,26 +116,33 @@ final class hidden_test extends \advanced_testcase {
      * Rewording a preset's guidance does not disturb who has hidden it.
      *
      * The hide is keyed on the preset id rather than on the text, which is what lets a curator fix
-     * a typo without silently un-hiding the note for everyone who had dismissed it.
+     * a typo without silently un-hiding the note for everyone who had dismissed it. Asserted by
+     * showing that the id is the whole of what gets stored, rather than by rewording a real
+     * preset: this class never reads mod_edpreset, so a reword is not an event it can observe,
+     * and reaching into that plugin to perform one would only make the test need it installed.
      */
-    public function test_editing_guidance_leaves_the_hidden_state_alone(): void {
+    public function test_the_hidden_state_is_keyed_on_the_preset_id_alone(): void {
         global $DB;
 
         $this->resetAfterTest();
         $this->setUser($this->getDataGenerator()->create_user());
 
-        $preset = $this->getDataGenerator()
-            ->get_plugin_generator('mod_edpreset')
-            ->create_preset(['teacherguidance' => '<p>First wording.</p>']);
-        $presetid = (int)$preset->get('id');
+        $presetid = 4242;
 
         hidden::set(hidden::SCOPE_GUIDANCE, $presetid, true);
-        $this->assertTrue(hidden::is_hidden(11, $presetid));
-
-        $DB->set_field('edpreset_item', 'teacherguidance', '<p>Second wording.</p>', ['id' => $presetid]);
         hidden::reset_cache();
 
         $this->assertTrue(hidden::is_hidden(11, $presetid));
+
+        $stored = $DB->get_records('favourite', [
+            'component' => hidden::COMPONENT,
+            'itemtype' => hidden::SCOPE_GUIDANCE,
+        ]);
+
+        // One row, carrying the id and no copy of the wording it was hiding, so there is nothing
+        // for an edit over in mod_edpreset to invalidate.
+        $this->assertCount(1, $stored);
+        $this->assertSame($presetid, (int)reset($stored)->itemid);
     }
 
     /**
