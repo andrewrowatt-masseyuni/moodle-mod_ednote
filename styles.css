@@ -196,3 +196,49 @@ body.path-course-view.snap-resource-card ul.section li.snap-asset.snap-resource.
         display: none;
     }
 }
+
+/*
+ * Settings form: the frozen body of a note that carries a preset's guidance.
+ *
+ * mod_ednote_mod_form::definition() hard-freezes introeditor on such a note, and core renders a
+ * frozen editor as bare formatted text - MoodleQuickForm_editor::getFrozenHtml() returns
+ * format_text() output with nothing wrapped around it. Left alone that reads as page copy rather
+ * than as the field it stands in for, so it is dressed as a read-only textarea instead. Values are
+ * Boost's own .form-control, with the background it gives [readonly].
+ *
+ * The box goes on .felement because that unwrapped fragment leaves no inner element to hang it on,
+ * which is also why the border sits at the column edge rather than 15px in where a real control's
+ * would: theme_snap's core_form/element-template drops the column from this row altogether, so
+ * there is no one offset that is right in both themes.
+ *
+ * Overriding the display is part of the fix rather than tidying: core's column is a flex container,
+ * so a snapshot of more than one paragraph would otherwise be laid out side by side.
+ */
+.ednote-frozen-intro .felement {
+    display: block;
+    /* About three rows, so an empty snapshot still reads as a field rather than as a seam. */
+    min-height: 5rem;
+    /* A long snapshot scrolls, the way the textarea it replaces would. */
+    max-height: 20rem;
+    overflow-y: auto;
+    padding: 0.375rem 0.75rem;
+    color: #495057;
+    background-color: #e9ecef;
+    border: 1px solid #8f959e;
+}
+
+/*
+ * The trailing margin on the last paragraph would open a gap along the bottom of the box, and the
+ * error slot core appends after the text means :last-child cannot be used to reach it.
+ */
+.ednote-frozen-intro .felement > * {
+    margin-bottom: 0;
+}
+
+.ednote-frozen-intro .felement > * + * {
+    margin-top: 0.5rem;
+}
+
+.ednote-presetnotice {
+    
+}

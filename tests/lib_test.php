@@ -133,6 +133,59 @@ final class lib_test extends \advanced_testcase {
     }
 
     /**
+     * The body is frozen on a note that carries a preset's guidance, and editable on one that
+     * does not.
+     *
+     * On a preset note the intro is only the fallback snapshot, used when mod_edpreset is absent
+     * or the preset has been deleted - what teachers actually read comes from
+     * edpreset_item.teacherguidance. A live editor there invites a curator to rewrite a field
+     * whose contents nothing displays, and to believe they have changed the guidance.
+     */
+    public function test_the_form_freezes_the_body_of_a_preset_note(): void {
+        global $CFG, $PAGE;
+
+        require_once($CFG->dirroot . '/course/modlib.php');
+        require_once($CFG->dirroot . '/course/moodleform_mod.php');
+        require_once($CFG->dirroot . '/mod/ednote/mod_form.php');
+
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+
+        // Core's standard_coursemodule_elements() looks the section up against global $COURSE
+        // rather than the course it was handed. Production always reaches this form through a
+        // page already set to the right course.
+        $PAGE->set_course($course);
+
+        foreach (['preset' => 42, 'standalone' => 0] as $kind => $presetid) {
+            $note = $generator->create_module('ednote', ['course' => $course->id, 'presetid' => $presetid]);
+            $cm = get_coursemodule_from_id('ednote', $note->cmid, $course->id, false, MUST_EXIST);
+
+            [$cm, , , $data, $cw] = get_moduleinfo_data($cm, $course);
+            $form = new \mod_ednote_mod_form($data, $cw->section, $cm, $course);
+
+            // The quickform object is protected, and moodleform offers no accessor for it.
+            $mform = (new \ReflectionProperty(\moodleform::class, '_form'))->getValue($form);
+
+            $this->assertSame(
+                $presetid > 0,
+                $mform->getElement('introeditor')->isFrozen(),
+                "The body of a $kind note is frozen when it should not be, or the other way round."
+            );
+
+            // The stylesheet dresses the frozen text as a read-only control off this class,
+            // which both themes render onto the form item wrapper.
+            $this->assertSame(
+                $presetid > 0 ? 'ednote-frozen-intro' : null,
+                $mform->getElement('introeditor')->getAttribute('class'),
+                "The body of a $kind note carries the wrong styling hook."
+            );
+        }
+    }
+
+    /**
      * Students cannot see a teacher note, and teachers can.
      *
      * This is the plugin's whole security model, and it is enforced by core rather than by any code

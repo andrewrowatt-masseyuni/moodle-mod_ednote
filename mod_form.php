@@ -60,9 +60,26 @@ class mod_ednote_mod_form extends moodleform_mod {
         $mform->setType('showdescription', PARAM_INT);
 
         // A note carrying a preset's guidance shows that instead of what is typed here, so say so
-        // rather than letting a curator edit a field that will not be displayed.
+        // and freeze the body rather than letting a curator edit a field that will not be
+        // displayed. What is left in it is the fallback snapshot, shown only if mod_edpreset goes
+        // away, and editing that here would be editing something nobody can see.
+        //
+        // hardFreeze() has to come after standard_intro_elements() created the element. It also
+        // drops the rules on it, which is what we want: $CFG->requiremodintro would otherwise
+        // demand a value for a field there is no longer any way to type into. A frozen element
+        // submits nothing, and MoodleQuickForm::exportValues() falls back to the default that
+        // get_moduleinfo_data() prepared from the stored intro, so the snapshot and its files
+        // survive a save unchanged.
         if (!empty($this->current->presetid)) {
-            $mform->addElement('static', 'ednote_presetnotice', '', get_string('presetguidance', 'mod_ednote'));
+            $mform->addElement('static', 'ednote_presetnotice', '', html_writer::div(get_string('presetguidance', 'mod_ednote'), 'alert alert-info ednote-presetnotice'));
+            $mform->hardFreeze('introeditor');
+
+            // A frozen editor renders as bare formatted text where the textarea was, which reads as
+            // loose page copy rather than as a field somebody has been locked out of. Mark the form
+            // item so styles.css can give it back the shape of a read-only control. An element's
+            // class attribute lands on that wrapper in both core's and theme_snap's
+            // core_form/element-template, and the frozen editor ignores its own attributes.
+            $mform->getElement('introeditor')->updateAttributes(['class' => 'ednote-frozen-intro']);
         }
 
         $this->standard_coursemodule_elements();
