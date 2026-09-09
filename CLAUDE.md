@@ -26,10 +26,12 @@ Consequences:
   and tested as a pair, but the link is **soft and one-way**: neither declares
   `$plugin->dependencies` on the other, and each installs and works alone.
 
-**This plugin has no README.** The design record lives in the source: the file-level and inline
-comments are unusually dense and explain *why* each non-obvious decision was made, usually with the
-failure mode that motivated it. Read the comments in the area you are changing before changing it,
-and keep them accurate in the same change.
+[README.md](README.md) is the plugin's design record — it documents not just what the code does but
+*why each non-obvious decision was made*, with the failure mode that motivated it. **Read the
+relevant section before changing that area, and update it in the same change when behaviour
+changes.** The source comments carry the same rationale at close range and are held to the same
+standard. The notes below are the operating context that README does not cover; do not duplicate
+README content here.
 
 ## Development environment
 
@@ -124,139 +126,58 @@ guidelines — use it for review passes on plugin code.
 
 `mod_ednote` is a **teacher-only note rendered inline on the course page** — a label that students
 cannot see. It is shaped on `mod_label`: `MOD_ARCHETYPE_RESOURCE`, `FEATURE_NO_VIEW_LINK`, body held
-in `intro`, no grades, groups, completion or idnumber. [view.php](view.php) exists only to redirect
-the stray visitor back to the course.
+in `intro`, no grades, groups, completion or idnumber. Its reason to exist is the pairing with
+`mod_edpreset`: a note usually carries a `presetid` and is a **live view onto that preset's
+`teacherguidance`**, so a curator rewording the exemplar updates every note already in every course.
 
-Its reason to exist is the pairing with `mod_edpreset`: a note usually carries a `presetid` and is a
-**live view onto that preset's `teacherguidance`**, so a curator rewording the exemplar in the
-template course updates every note already sitting in every course.
+README's *Technical details* covers each area in full. The four things below are the ones most
+likely to be broken by a plausible-looking change, so check them before editing near them.
 
-### The two load-bearing mechanisms
+* **Students are kept out by a capability, not by visibility.** `mod/ednote:view` exists and omits
+  the `student` archetype, so core's `is_user_access_restricted_by_capability()` makes the cm
+  invisible before any plugin code runs. There is no second line of defence, and
+  `moodle/course:viewhiddenactivities` deliberately does not override it. `view.php` and
+  `ednote_pluginfile()` sit outside that check and re-check it explicitly.
+  → README *Who can see a note*.
+* **The note's text is resolved per request and never cached into modinfo.**
+  `ednote_get_coursemodule_info()` deliberately sets no `$info->content`; only the fixed `presetid`
+  goes into `customdata`. [classes/guidance.php](classes/guidance.php) resolves the whole course in
+  one query per page (live guidance → the note's own `intro` snapshot → nothing), picking between two
+  SQL variants because `edpreset_item` may not exist. Both branches yield **already-cleaned HTML**
+  rendered unescaped — re-cleaning double-escapes. → README *Resolving the text*.
+* **Removing a hidden note from the page takes two halves.** `set_user_visible(false)` in
+  `ednote_cm_info_dynamic()` is enough for Snap but not for core's format, which gates on
+  `uservisibleoncoursepage` — already derived before that callback runs. The other half is the
+  `li.modtype_ednote:has(.ednote-is-hidden)` rule in [styles.css](styles.css), keyed on a marker
+  `ednote_cm_info_view()` emits. → README *Removing a hidden note from the course page*.
+* **A hidden note cannot be resolved through `require_login()`.** [hidden.php](hidden.php) and
+  [classes/external/set_hidden.php](classes/external/set_hidden.php) use `get_coursemodule_from_id()`
+  plus the **course** context, never `get_course_and_cm_from_cmid()`, which refuses a cm that is not
+  user-visible — which is what a note becomes the moment it is hidden. Using it makes unhiding a
+  one-way door. → README *Not resolving a hidden note through `require_login()`*.
 
-**1. Students are kept out by a capability, not by visibility.**
-`cm_info::is_user_access_restricted_by_capability()` (`lib/modinfolib.php`) looks for a capability
-named exactly `mod/<modname>:view`. Because [db/access.php](db/access.php) defines `mod/ednote:view`
-and omits the `student` archetype, core marks the cm not user-visible before anything in this plugin
-runs — in every theme, the course index and navigation included. There is **no second line of
-defence**: granting `mod/ednote:view` to students exposes every note on the site. A note stays
-`visible = 1`, so it carries no "Hidden from students" badge and cannot be exposed by the bulk *Show*
-action; `moodle/course:viewhiddenactivities` deliberately does not override this.
-[view.php](view.php) and `ednote_pluginfile()` re-check the capability, because neither is reached
-through whatever made the note invisible on the course page.
-
-**2. The note's text is resolved per request and never cached into modinfo.**
-`ednote_get_coursemodule_info()` deliberately does **not** set `$info->content` (which is what
-`mod_label` does) — `cached_cm_info` is cached in modinfo, and a cached body would show last week's
-wording until something bumped the course cache. Only the `presetid` goes into `customdata`, because
-that is fixed at creation. The text is resolved instead in `ednote_cm_info_view()`, via
-[classes/guidance.php](classes/guidance.php).
-
-### Text resolution — [classes/guidance.php](classes/guidance.php)
-
-`guidance::for_course()` runs **one direct query per course page**, statically cached, and
-`for_cm()` reads from it. It is a raw `$DB` query rather than a walk over `get_fast_modinfo()`
-because it is called while the modinfo object for that very course is mid-build.
-
-The `edpreset_item` table cannot be joined blindly — `mod_edpreset` is optional and its tables may
-not exist — so `edpreset_is_installed()` (a `class_exists()` check) picks between two SQL variants.
-
-Resolution order per note:
-
-1. **Live** `edpreset_item.teacherguidance` when the note has a `presetid` and the preset exists.
-2. **Snapshot** — the note's own `intro`, written by `emit_note()` at creation precisely so this
-   fallback has something to show. Rendered through `format_module_intro()`, not a bare
-   `format_text()`, so `@@PLUGINFILE@@` placeholders resolve against the module context and reach
-   `ednote_pluginfile()`.
-3. Nothing.
-
-A note that had a `presetid` but fell through to step 2 or 3 is flagged `missing`, and the template
-tells the teacher the text may be stale.
-
-Both branches produce **already-cleaned HTML** rendered unescaped by the template: preset guidance is
-cleaned once by `mod_edpreset` at bake time, a hand-written note by `format_module_intro()`.
-Re-cleaning or re-escaping downstream double-escapes entities the curator meant literally.
-
-### Per-user hiding — [classes/hidden.php](classes/hidden.php)
-
-Hiding is always personal; one teacher tidying their view never changes what a colleague sees. State
-lives in **`core_favourites`** under component `mod_ednote`, matching how `mod_edpreset` stores
-starred presets. Two scopes, differing only in what the row is keyed on:
-
-| Scope | Key | Effect |
-| --- | --- | --- |
-| `hiddennote` | course module id | Hides exactly this note |
-| `hiddenguidance` | preset id | Hides every note carrying that guidance, in every course |
-
-Neither is keyed on the guidance *text*, so a curator can reword a preset without silently
-un-hiding it. Rows are stored in the **user's own context** for both scopes — they describe a user
-preference, and it means unhiding still works after the note is deleted, where
-`context_module::instance()` would throw. The read cache is keyed by user id, because the user can
-change within a request ("log in as", cron).
-
-Three traps live here:
-
-* **Removing a hidden note from the page takes two halves.** `ednote_cm_info_dynamic()` calls
-  `set_user_visible(false)`, which is enough for theme_snap (its course renderer returns early on
-  `!$mod->uservisible`) but not for core's course format, which gates on `uservisibleoncoursepage` —
-  already derived by `update_user_visible()` before this callback runs. The other half is the CSS
-  rule `li.modtype_ednote:has(.ednote-is-hidden)` in [styles.css](styles.css), keyed on a marker
-  `ednote_cm_info_view()` emits in place of the note. `mod_ednote/note` also removes those markers on
-  load, for browsers without `:has()`. Doing it in CSS is safe only because it is cosmetic —
-  students never reach this markup.
-* **A hidden note cannot be resolved through `require_login()`.** Both [hidden.php](hidden.php) and
-  [classes/external/set_hidden.php](classes/external/set_hidden.php) use
-  `get_coursemodule_from_id()` plus the **course** context, never `get_course_and_cm_from_cmid()`,
-  which refuses a cm that is not user-visible — which is exactly what a note becomes the moment it is
-  hidden. Using it would make unhiding a one-way door. `require_capability('mod/ednote:view', …)` on
-  the module context is then the real gate rather than a formality.
-* **Nothing in core cleans these rows up.** They live in each user's context, so
-  `ednote_delete_instance()` calls `hidden::purge_for_cm()` before deleting the record (it needs the
-  record to find the cm).
-
-The web service resolves the preset id **server-side** from the cm, so the `hiddenguidance` scope
-cannot be used to hide arbitrary presets; a standalone note asking for it falls back to
-`hiddennote` rather than writing a row keyed on 0.
+Per-user hide state lives in **`core_favourites`** under component `mod_ednote`, in the **user's own
+context**, under two scopes: `hiddennote` (keyed on cm id) and `hiddenguidance` (keyed on preset id).
+Nothing in core cleans those rows up, so `ednote_delete_instance()` calls `hidden::purge_for_cm()`.
+→ README *Per-user hiding*.
 
 ### Request flow
 
-* [lib.php](lib.php) — the core callbacks described above, plus `ednote_extend_navigation_course()`,
-  which adds the *Hidden notes* link **only when the user has something to restore** (a hidden note
-  leaves no trace on the course page, so without it there is no way back).
+* [lib.php](lib.php) — the core callbacks above, plus `ednote_extend_navigation_course()`, which adds
+  the *Hidden notes* link only when the user has something to restore.
 * [classes/output/note.php](classes/output/note.php) → [templates/note.mustache](templates/note.mustache)
-  — exports **both** states, guidance and the "you have hidden this" confirmation. The AMD module
-  toggles the `hidden` attribute between them, so undo needs no round trip and nothing is rendered
-  client-side.
-* [amd/src/note.js](amd/src/note.js) — one delegated click listener for the whole page; the JS is
-  attached once per page in `ednote_cm_info_view()`, not once per note. Hiding deliberately does
-  *not* remove the note from the page it was clicked on. Uses `try`/`catch` rather than a promise
-  chain because `core/ajax` returns a jQuery Deferred with no `.finally()`, which would strand the
-  `Pending` and leave the page permanently "not ready".
-* [hidden.php](hidden.php) — lists what the user has hidden in a course and shows it again. Also the
-  **no-JavaScript target** for the hide links, which are real sesskey-carrying links that the AMD
-  module intercepts only when it can finish the job itself.
-* [classes/privacy/provider.php](classes/privacy/provider.php) — notes are course content, not
-  personal data (a preset note does not even store the text it shows). The only personal data is the
-  hide state, delegated to `core_favourites`' own provider in the user context.
-
-### The settings form — [mod_form.php](mod_form.php)
-
-Like a label, a note has no separate title: `name` is a hidden element derived from the body in
-`data_postprocessing()`. That forces two overrides:
-
-* `validation()` drops the required-name error, because the name is still empty when
-  `moodleform_mod::validation()` runs and an error on a hidden element **renders nothing** — the form
-  would bounce back looking untouched.
-* `FEATURE_SHOW_DESCRIPTION` is `false` (the body *is* the note), so `standard_intro_elements()` adds
-  no "Display description" checkbox and the form supplies `showdescription` itself.
-
-For a note carrying a `presetid`, `introeditor` is `hardFreeze()`d after `standard_intro_elements()`
-created it, with an explanatory notice. Freezing also drops the element's rules, which is wanted:
-`$CFG->requiremodintro` would otherwise demand a value for a field nobody can type into. A frozen
-element submits nothing, so the stored snapshot and its files survive a save unchanged.
-
-`presetid` is **write-once**: set in `ednote_add_instance()`, explicitly `unset()` in
-`ednote_update_instance()`. Re-pointing a note at a different preset is not something the form offers.
-
+  — exports **both** states, guidance and the "you have hidden this" confirmation; the AMD module
+  toggles between them, so undo needs no round trip and nothing is rendered client-side.
+* [amd/src/note.js](amd/src/note.js) — one delegated listener, attached once per page (not per note).
+  `try`/`catch` rather than a promise chain: `core/ajax` returns a jQuery Deferred with no
+  `.finally()`, which would strand the `Pending` and leave the page permanently "not ready".
+* [hidden.php](hidden.php) — lists and restores hidden notes; also the **no-JavaScript target** for
+  the hide links, which are real sesskey-carrying links the AMD module intercepts opportunistically.
+* [mod_form.php](mod_form.php) — no name field (derived from the body in `data_postprocessing()`,
+  which forces the `validation()` override), and `hardFreeze('introeditor')` for preset notes.
+  `presetid` is write-once: set on add, explicitly unset on update.
+* [classes/privacy/provider.php](classes/privacy/provider.php) — notes are course content; the only
+  personal data is the hide state, delegated to `core_favourites` in the user context.
 ## Conventions and traps
 
 * **`$plugin->supported` is pinned to `[405, 405]`** to match `mod_edpreset`, this plugin's main
