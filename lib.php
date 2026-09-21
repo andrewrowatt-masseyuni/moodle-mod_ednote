@@ -225,47 +225,24 @@ function ednote_cm_info_view(cm_info $cm) {
     }
 }
 
-/**
- * Serve files embedded in a note's body.
+/*
+ * There is deliberately no ednote_pluginfile().
  *
- * @param stdClass $course The course.
- * @param stdClass $cm The course module.
- * @param context $context The module context.
- * @param string $filearea The file area.
- * @param array $args The remaining path arguments.
- * @param bool $forcedownload Whether to force download.
- * @param array $options Additional options.
- * @return bool False when the file cannot be served.
+ * A note's only file area is the standard 'intro' one, and core never delegates that area to a
+ * module. file_pluginfile() in lib/filelib.php handles 'intro' itself for any module answering true
+ * to FEATURE_MOD_INTRO - which this one does - and both of its branches terminate, by
+ * send_stored_file() or send_file_not_found(). The $filefunction dispatch that would call
+ * ednote_pluginfile() sits after that block and is unreachable for 'intro'.
+ *
+ * A handler here would therefore be dead code, and dead code that appears to enforce access control
+ * is worse than none: it invites the belief that this plugin gates its own files when it does not.
+ *
+ * Students are still kept out, by core, on the path that actually runs. A student has no
+ * mod/ednote:view, so the cm is not user-visible; showdescription is 1 on every note, so core's
+ * check falls through to !$cminfo->is_visible_on_course_page(), which is also false for them, and
+ * core calls require_course_login() with the cm - which refuses a cm that is not user-visible. If
+ * that core behaviour is ever revisited, this is the comment to come back to.
  */
-function ednote_pluginfile($course, $cm, $context, $filearea, $args, $forcedownload, array $options = []) {
-    global $CFG;
-
-    if ($context->contextlevel != CONTEXT_MODULE || $filearea !== 'intro') {
-        return false;
-    }
-
-    require_course_login($course, true, $cm);
-
-    // The same capability that decides whether the note is visible at all decides whether its
-    // images are. Without this a student who guessed a URL could read the guidance one picture at
-    // a time.
-    if (!has_capability('mod/ednote:view', $context)) {
-        return false;
-    }
-
-    require_once($CFG->libdir . '/filelib.php');
-
-    $relativepath = implode('/', $args);
-    $fullpath = "/$context->id/mod_ednote/$filearea/$relativepath";
-
-    $fs = get_file_storage();
-    $file = $fs->get_file_by_hash(sha1($fullpath));
-    if (!$file || $file->is_directory()) {
-        return false;
-    }
-
-    send_stored_file($file, null, 0, $forcedownload, $options);
-}
 
 /**
  * Add a link to the hidden notes page, for users who have hidden something in this course.

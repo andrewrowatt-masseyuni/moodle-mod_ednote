@@ -174,9 +174,11 @@ Two consequences are worth knowing before changing anything here:
   badge and cannot be exposed by the bulk *Show* action in course editing — a note is not something a
   teacher can reveal to students by accident.
 
-Two paths sit outside that check and repeat it explicitly: [view.php](view.php), which is not gated by
-whatever made the note invisible on the course page, and `ednote_pluginfile()`, without which a student
-who guessed a URL could read the guidance one embedded image at a time.
+[view.php](view.php) sits outside that check and repeats it explicitly, because it is not gated by
+whatever made the note invisible on the course page.
+
+Embedded images are covered by core rather than by this plugin, and deliberately so — see
+[Files](#files). A handler here would never run.
 
 ### Resolving the text
 
@@ -197,8 +199,17 @@ the modinfo object for that very course is mid-build. `tests/guidance_test.php` 
 so a regression here is caught rather than merely noticed as a slow page.
 
 `edpreset_item` cannot be joined blindly — on a site without `mod_edpreset` the join would be to a
-table that does not exist — so `edpreset_is_installed()` (a `class_exists()` check) selects between two
-SQL variants.
+table that does not exist — so `edpreset_is_installed()` selects between two SQL variants.
+
+That check asks whether the plugin is **installed**, via `get_config('mod_edpreset', 'version')`, and
+not whether its code is on disk. The two come apart, and the gap is not theoretical: `uninstall_plugin()`
+reads a plugin's own `db/install.xml` from disk in order to drop its tables, so the code necessarily
+outlives the schema. A `class_exists()` check — which is what this used to be — goes on returning true
+after `mod_edpreset` is uninstalled, the join is built against a table that is gone, and **every course
+page holding a note dies with a `dml_read_exception`**. `get_config()` tracks the tables instead,
+because `uninstall_plugin()` calls `unset_all_config_for_plugin()` before `drop_plugin_tables()`, and it
+is cheaper than `table_exists()` on a path that runs for every course page.
+`tests/guidance_test.php` pins this by taking the version away while leaving the classes loadable.
 
 Each note then resolves in this order:
 
@@ -207,8 +218,8 @@ Each note then resolves in this order:
 2. **The snapshot** — the note's own `intro`, which `mod_edpreset` wrote at creation time precisely so
    this fallback has something to show. Formatted with `format_module_intro()` rather than a bare
    `format_text()`, so that `@@PLUGINFILE@@` placeholders in a hand-written note resolve against the
-   module context and reach `ednote_pluginfile()`; formatting against the system context instead would
-   render them as broken images.
+   module context and reach core's `intro` file handler; formatting against the system context instead
+   would render them as broken images.
 3. **Nothing** — the note renders as if it were not there.
 
 A note that has a `presetid` but fell through to step 2 or 3 is flagged as missing its preset, and the
@@ -354,6 +365,17 @@ scopes from being used to hide arbitrary presets. A standalone note asking for t
 falls back to the note scope rather than writing a row keyed on `0`, which would match every other
 standalone note.
 
+[hidden.php](hidden.php) is the same operation reached without JavaScript, so it has to hold the same
+line. It takes the preset id from the URL rather than from a cm, and therefore checks it against the
+notes in the course — which is what the web service is doing implicitly by starting from a cm. The
+check is against `{ednote}` rather than `{edpreset_item}` on purpose: a note keeps its `presetid` when
+`mod_edpreset` is absent, and still offers *always hide this guidance*, so validating against the
+preset itself would refuse a legitimate hide on exactly the sites the snapshot fallback exists for.
+
+It applies **only when hiding**. Showing has to accept whatever is already stored, including a preset
+since deleted or one that reached the user through a course they have since left — those rows are what
+the hidden notes page exists to clear, and validating them would strand them forever.
+
 ### Styling and themes
 
 All styling hangs off classes in the markup this plugin emits, rather than on the course page's cm
@@ -367,9 +389,22 @@ Snap's activity-type prefix, which duplicates what the note's own header already
 
 ### Files
 
-Images pasted into a hand-written note live in the standard `intro` file area and are served by
-`ednote_pluginfile()`, which serves only that area and only to users with `mod/ednote:view`. Preset
-guidance carries its own files, served by `mod_edpreset`.
+Images pasted into a hand-written note live in the standard `intro` file area. Preset guidance carries
+its own files, served by `mod_edpreset`.
+
+**There is deliberately no `ednote_pluginfile()`**, and adding one would be dead code. `file_pluginfile()`
+in `lib/filelib.php` handles the `intro` area itself for any module answering true to
+`FEATURE_MOD_INTRO`, and both of its branches terminate — by `send_stored_file()` or
+`send_file_not_found()`. The `$filefunction` dispatch that would call into this plugin sits after that
+block and is unreachable for `intro`. A handler that appears to enforce access control but never runs is
+worse than none, because it invites the belief that this plugin gates its own files.
+
+Students are still kept out, by core, on the path that actually runs: a student has no `mod/ednote:view`,
+so the cm is not user-visible; `showdescription` is `1` on every note, so core's check falls through to
+`!$cminfo->is_visible_on_course_page()`, which is false for them too, and core calls
+`require_course_login()` with the cm — which refuses a cm that is not user-visible. The comment in
+[lib.php](lib.php) where the handler would have gone records this, so that it is checked rather than
+assumed if core's behaviour is ever revisited.
 
 ### Backup and restore
 
@@ -380,6 +415,11 @@ the site rather than something inside the course being backed up, so there is no
 restore onto a different site simply finds no such preset, and the note falls back to the snapshot
 text it carries. Carrying it matters because it is also the key the "always hide this guidance" scope
 is stored against.
+
+Both halves of that are invisible at a glance and easy to "fix" into a remap, so
+[tests/backup_test.php](tests/backup_test.php) puts a real backup and restore through a course and
+asserts the id comes out unchanged — along with the snapshot text, the `intro` files, and the restored
+note still resolving through `guidance`.
 
 Per-user hide state is not backed up. It lives in `core_favourites` in each user's own context and is
 a preference of that user rather than course content.
@@ -397,8 +437,8 @@ that is not a `context_user`. Deletion is delegated to `core_favourites`' own pr
 
 ## Testing
 
-The plugin ships PHPUnit coverage for the text resolver, the hide state, the library callbacks and the
-external function, plus a test data generator.
+The plugin ships PHPUnit coverage for the text resolver, the hide state, the library callbacks, the
+external function and the backup/restore steps, plus a test data generator.
 
 ```
 vendor/bin/phpunit --testsuite mod_ednote_testsuite

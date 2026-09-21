@@ -121,8 +121,9 @@ class guidance {
                 'presetid' => $presetid,
                 // Uses format_module_intro() rather than a bare format_text(): it rewrites the
                 // @@PLUGINFILE@@ placeholders in a hand-written note against the module context, so
-                // that images pasted into the editor resolve through ednote_pluginfile(). Formatting
-                // against the system context instead would render them as broken images.
+                // that images pasted into the editor resolve through core's intro file handler in
+                // file_pluginfile(). Formatting against the system context instead would render them
+                // as broken images.
                 'content' => format_module_intro('ednote', $record, (int)$record->cmid),
                 // A note that was linked to a preset but is now falling back to its snapshot is
                 // showing text that may be out of date, and the teacher should be told so.
@@ -136,10 +137,24 @@ class guidance {
     /**
      * Whether mod_edpreset is installed on this site.
      *
+     * Asks whether the plugin is installed, not whether its code is on disk, because those are not
+     * the same thing and only the first one predicts whether edpreset_item can be joined.
+     *
+     * class_exists() answers the wrong question. uninstall_plugin() reads the plugin's own
+     * db/install.xml from disk in order to drop its tables, so the code necessarily outlives the
+     * schema: after mod_edpreset is uninstalled its classes still autoload, a class_exists() check
+     * still says yes, and the join in for_course() is built against a table that is gone. Every
+     * course page holding a note then dies with a dml_read_exception.
+     *
+     * get_config() is the signal that tracks the tables, because uninstall_plugin() calls
+     * unset_all_config_for_plugin() before drop_plugin_tables() - the version disappears no later
+     * than the tables do. It is also cheaper than $DB->get_manager()->table_exists(), which costs a
+     * schema lookup on a path that runs for every course page; plugin config is already cached.
+     *
      * @return bool
      */
     public static function edpreset_is_installed(): bool {
-        return class_exists('\mod_edpreset\preset');
+        return (bool)get_config('mod_edpreset', 'version');
     }
 
     /**

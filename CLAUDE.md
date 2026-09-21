@@ -136,15 +136,19 @@ likely to be broken by a plausible-looking change, so check them before editing 
 * **Students are kept out by a capability, not by visibility.** `mod/ednote:view` exists and omits
   the `student` archetype, so core's `is_user_access_restricted_by_capability()` makes the cm
   invisible before any plugin code runs. There is no second line of defence, and
-  `moodle/course:viewhiddenactivities` deliberately does not override it. `view.php` and
-  `ednote_pluginfile()` sit outside that check and re-check it explicitly.
-  → README *Who can see a note*.
+  `moodle/course:viewhiddenactivities` deliberately does not override it. `view.php` sits outside
+  that check and re-checks it explicitly. There is deliberately **no `ednote_pluginfile()`**: core
+  handles the `intro` area itself and terminates, so a handler here would never run.
+  → README *Who can see a note*, *Files*.
 * **The note's text is resolved per request and never cached into modinfo.**
   `ednote_get_coursemodule_info()` deliberately sets no `$info->content`; only the fixed `presetid`
   goes into `customdata`. [classes/guidance.php](classes/guidance.php) resolves the whole course in
   one query per page (live guidance → the note's own `intro` snapshot → nothing), picking between two
-  SQL variants because `edpreset_item` may not exist. Both branches yield **already-cleaned HTML**
-  rendered unescaped — re-cleaning double-escapes. → README *Resolving the text*.
+  SQL variants because `edpreset_item` may not exist. That choice turns on
+  `get_config('mod_edpreset', 'version')` and **must not** become a `class_exists()` check: uninstall
+  drops the tables but leaves the code, so class presence outlives the schema and the join would
+  fatal every course page. Both branches yield **already-cleaned HTML** rendered unescaped —
+  re-cleaning double-escapes. → README *Resolving the text*.
 * **Removing a hidden note from the page takes two halves.** `set_user_visible(false)` in
   `ednote_cm_info_dynamic()` is enough for Snap but not for core's format, which gates on
   `uservisibleoncoursepage` — already derived before that callback runs. The other half is the

@@ -193,4 +193,43 @@ final class guidance_test extends \advanced_testcase {
         guidance::for_course((int)$course->id);
         $this->assertSame(0, $DB->perf_get_reads() - $before, 'The second call must be served from memory.');
     }
+
+    /**
+     * Whether mod_edpreset counts as present is decided by its installed version, not by its code.
+     *
+     * The two come apart, and the gap is not theoretical: uninstall_plugin() reads a plugin's own
+     * db/install.xml from disk in order to drop its tables, so the code is still there - and still
+     * autoloading - once the schema has gone. A class_exists() check goes on saying yes, for_course()
+     * joins edpreset_item, and every course page holding a note dies with a dml_read_exception.
+     */
+    public function test_edpreset_is_detected_by_its_version_not_by_its_code(): void {
+        $this->resetAfterTest();
+
+        if (!guidance::edpreset_is_installed()) {
+            $this->markTestSkipped('Nothing to take away on a site without mod_edpreset.');
+        }
+
+        $course = $this->getDataGenerator()->create_course();
+        $this->getDataGenerator()->create_module('ednote', [
+            'course' => $course->id,
+            'presetid' => self::MISSING_PRESETID,
+            'intro' => '<p>Snapshot.</p>',
+        ]);
+
+        // Exactly what an uninstall leaves behind: the config row gone, every class still loadable.
+        unset_config('version', 'mod_edpreset');
+
+        $this->assertTrue(
+            class_exists('\mod_edpreset\preset'),
+            'The code must still be on disk, or this test is not testing the distinction it claims to.'
+        );
+        $this->assertFalse(guidance::edpreset_is_installed());
+
+        // And the resolver must now take the branch that does not touch edpreset_item at all.
+        guidance::reset_cache();
+        $notes = guidance::for_course((int)$course->id);
+
+        $this->assertCount(1, $notes);
+        $this->assertStringContainsString('Snapshot.', reset($notes)->content);
+    }
 }

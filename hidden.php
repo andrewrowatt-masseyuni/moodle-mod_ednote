@@ -69,6 +69,25 @@ if ($scope !== '' && $hide >= 0) {
     if ($scope === hidden::SCOPE_NOTE) {
         $cm = get_coursemodule_from_id('ednote', $itemid, $course->id, false, MUST_EXIST);
         require_capability('mod/ednote:view', context_module::instance($cm->id));
+    } else if ($hide) {
+        // The web service never takes a preset id from the browser: set_hidden::execute() reads it
+        // from the note that was clicked, precisely so the wider scope cannot be used to write a
+        // row for an arbitrary preset. This is the same operation reached without JavaScript, so it
+        // has to hold the same line; checking it against the notes in this course is what the web
+        // service is doing implicitly by starting from a cm.
+        //
+        // Deliberately the {ednote} table rather than {edpreset_item}: a note keeps its presetid
+        // when mod_edpreset is absent, and the template still offers "always hide this guidance"
+        // for it, so a check against the preset itself would refuse a legitimate hide on exactly
+        // the sites the snapshot fallback exists for.
+        //
+        // Only when hiding. Showing has to accept whatever is already stored, including a preset
+        // that has since been deleted or that reached this user through a course they have since
+        // left - those rows are what the list below exists to clear, and validating them here would
+        // strand them forever.
+        if ($itemid <= 0 || !$DB->record_exists('ednote', ['course' => $course->id, 'presetid' => $itemid])) {
+            throw new moodle_exception('invalidparameter', 'debug');
+        }
     }
 
     hidden::set($scope, $itemid, (bool)$hide);
